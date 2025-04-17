@@ -23,25 +23,58 @@ except Exception as e:
     print(f"Failed to initialize OllamaLLM: {e}")
     raise
 
+def filter_think_info(text):
+    """过滤掉 <think> 和 </think> 及其包含的内容"""
+    result = ""
+    start_index = 0
+    while True:
+        think_start = text.find('<think>', start_index)
+        if think_start == -1:
+            result += text[start_index:]
+            break
+        result += text[start_index:think_start]
+        think_end = text.find('</think>', think_start)
+        if think_end == -1:
+            break
+        start_index = think_end + len('</think>')
+    return result
+
 def chatbot(state: State):
+    show_thinking = False
+    find_think_end = False
     input_text = " ".join([msg.content for msg in state["messages"]])
+    print("Assistant: ", end = '')
+    
     # 使用 stream 方法进行流式输出
     response_parts = []
     try:
-        print("Starting streaming...")  # 添加调试信息
         for chunk in llm.stream(input_text):
-            # 修改此处，直接处理字符串
-            if isinstance(chunk, str):
-                response_parts.append(chunk)
-                print(chunk, end="", flush=True)
+            if hasattr(chunk, 'content'):
+                content = chunk.content
+            elif isinstance(chunk, str):
+                content = chunk
             else:
-                response_parts.append(chunk.content)
-                print(chunk.content, end="", flush=True)
+                continue
+            
+            if find_think_end is True or show_thinking is True:
+                response_parts.append(content)
+            else:
+                start_idx = content.find('</think>')
+                if start_idx == -1:
+                    continue
+                else:
+                    find_think_end = True
+                    content = content[start_idx + len('</think>') : len(content)]
+            
+            print(content, end="", flush=True)
+            response_parts.append(content)
+
     except Exception as e:
         print(f"Error during streaming: {e}")
         return {"messages": [{"role": "assistant", "content": "An error occurred during streaming."}]}
+    print("\n\n")
+    
     response = ''.join(response_parts)
-    print()  # 换行
 
     # 添加 role 键
     return {"messages": [{"role": "assistant", "content": response}]}
@@ -63,7 +96,8 @@ def stream_graph_updates(user_input: str):
 
 while True:
     try:
-        user_input = input("User: ")
+        user_input = input("User: \n\n")
+        print("\n")
         if user_input.lower() in ["quit", "exit", "q"]:
             print("Goodbye!")
             break
