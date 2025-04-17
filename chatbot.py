@@ -4,13 +4,19 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph
 from langgraph.graph.message import add_messages
 from langchain_ollama import OllamaLLM
+from langchain_huggingface import ChatHuggingFace
 from IPython.display import Image, display
+from langchain_community.tools.tavily_search import TavilySearchResults
+
+tool = TavilySearchResults(max_results=2)
+tools = [tool]
 
 class State(TypedDict):
     # Messages have the type "list". The `add_messages` function
     # in the annotation defines how this state key should be updated
     # (in this case, it appends messages to the list, rather than overwriting them)
     messages: Annotated[list, add_messages]
+    search_results: list
 
 graph_builder = StateGraph(State)
 
@@ -43,6 +49,7 @@ def chatbot(state: State):
     show_thinking = False
     find_think_end = False
     input_text = " ".join([msg.content for msg in state["messages"]])
+    print( "\n\n\n", "\n=============input_text=============\n" , input_text, "\n\n\n")
     print("Assistant: ", end = '')
     
     # 使用 stream 方法进行流式输出
@@ -79,12 +86,23 @@ def chatbot(state: State):
     # 添加 role 键
     return {"messages": [{"role": "assistant", "content": response}]}
 
+def run_search(state: State):
+    input_text = " ".join([msg.content for msg in state["messages"]])
+    results = tool.run(input_text)
+    print( "\n\n\n", "\n=============search result-=============\n" , results, "\n\n\n")
+    return {"search_results": results}
+
+# Add node.
 # The first argument is the unique node name
 # The second argument is the function or object that will be called whenever
 # the node is used.
+graph_builder.add_node("search", run_search)
+# 添加聊天机器人节点
 graph_builder.add_node("chatbot", chatbot)
-graph_builder.set_entry_point("chatbot")
-graph_builder.set_finish_point("chatbot")
+# 设置图的入口点为搜索节点
+graph_builder.set_entry_point("search")
+# 设置图的结束点为聊天机器人节点
+graph_builder.add_edge("search", "chatbot")
 graph = graph_builder.compile()
 
 def stream_graph_updates(user_input: str):
