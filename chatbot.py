@@ -95,8 +95,9 @@ def run_search(state: State):
     results = tool.run(input_text)
     print( "\n\n\n", "\n=============search result-=============\n" , results, "\n\n\n")
 
-    # 将搜索结果添加到消息中
+    # 确保只添加一次搜索结果
     search_content = "\n".join([result["content"] for result in results])
+    state["messages"] = [msg for msg in state["messages"] if not (isinstance(msg, dict) and msg.get("role") == "system")]
     state["messages"].append({"role": "system", "content": f"Search results: {search_content}"})
     return state
 
