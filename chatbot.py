@@ -1,42 +1,51 @@
 from typing import Annotated
-from langchain_anthropic import ChatAnthropic
+
+from langchain_ollama import ChatOllama
+from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_core.messages import BaseMessage
 from typing_extensions import TypedDict
+
 from langgraph.graph import StateGraph
 from langgraph.graph.message import add_messages
-from langchain_ollama import OllamaLLM
+from langgraph.prebuilt import ToolNode, tools_condition
 from IPython.display import Image, display
 
+
 class State(TypedDict):
-    # Messages have the type "list". The `add_messages` function
-    # in the annotation defines how this state key should be updated
-    # (in this case, it appends messages to the list, rather than overwriting them)
     messages: Annotated[list, add_messages]
+
 
 graph_builder = StateGraph(State)
 
-# 配置 Ollama 模型，这里需要替换成你实际部署的模型名称
-ollama_model = "deepseek-r1:1.5b"
-llm = OllamaLLM(model=ollama_model, straming=True)
-# llm = ChatAnthropic(model="claude-3-5-sonnet-20240620")
+tool = TavilySearchResults(max_results=2)
+tools = [tool]
+# 使用 ChatOllama 并指定本地部署的模型名称
+llm = ChatOllama(model="llama3.2:1b")
+llm_with_tools = llm.bind_tools(tools)
+
 
 def chatbot(state: State):
-    input_text = " ".join([msg.content for msg in state["messages"]])
-    # 使用 invoke 方法
-    response = llm.invoke(input_text)
-    # 添加 role 键
-    return {"messages": [{"role": "assistant", "content": response}]}
+    return {"messages": [llm_with_tools.invoke(state["messages"])]}
 
-# The first argument is the unique node name
-# The second argument is the function or object that will be called whenever
-# the node is used.
+
 graph_builder.add_node("chatbot", chatbot)
+
+tool_node = ToolNode(tools=[tool])
+graph_builder.add_node("tools", tool_node)
+
+graph_builder.add_conditional_edges(
+    "chatbot",
+    tools_condition,
+)
+# Any time a tool is called, we return to the chatbot to decide the next step
+graph_builder.add_edge("tools", "chatbot")
 graph_builder.set_entry_point("chatbot")
-graph_builder.set_finish_point("chatbot")
 graph = graph_builder.compile()
 
 def stream_graph_updates(user_input: str):
-    for event in graph.stream({"messages": [{"role": "user", "content": user_input}]},stream_mode="values"):
-        event["messages"][-1].pretty_print()
+    for event in graph.stream({"messages": [{"role": "user", "content": user_input}]}):
+        for value in event.values():
+            print("Assistant:", value["messages"][-1].content)
 
 
 while True:
@@ -52,7 +61,6 @@ while True:
         print("User: " + user_input)
         stream_graph_updates(user_input)
         break
-
 
 try:
     img_data = graph.get_graph().draw_mermaid_png()
