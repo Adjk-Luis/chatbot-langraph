@@ -5,7 +5,6 @@ from langgraph.graph import StateGraph
 from langgraph.graph.message import add_messages
 from langchain_ollama import OllamaLLM
 from langchain_huggingface import ChatHuggingFace
-from IPython.display import Image, display
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 tool = TavilySearchResults(max_results=2)
@@ -87,15 +86,25 @@ def chatbot(state: State):
     return {"messages": [{"role": "assistant", "content": response}]}
 
 def run_search(state: State):
+    # TODO.
+    should_use_tool = True
+    if should_use_tool is False:
+        return state
+
     input_text = " ".join([msg.content for msg in state["messages"]])
     results = tool.run(input_text)
     print( "\n\n\n", "\n=============search result-=============\n" , results, "\n\n\n")
-    return {"search_results": results}
+
+    # 将搜索结果添加到消息中
+    search_content = "\n".join([result["content"] for result in results])
+    state["messages"].append({"role": "system", "content": f"Search results: {search_content}"})
+    return state
 
 # Add node.
 # The first argument is the unique node name
 # The second argument is the function or object that will be called whenever
 # the node is used.
+# 添加搜索节点
 graph_builder.add_node("search", run_search)
 # 添加聊天机器人节点
 graph_builder.add_node("chatbot", chatbot)
