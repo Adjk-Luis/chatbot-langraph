@@ -63,7 +63,7 @@ while True:
         break
 
 try:
-    img_data = graph.get_graph().draw_mermaid_png()
+    img_data = graph.get_graph().draw_png()
     with open('graph.png', 'wb') as f:
         f.write(img_data)
     print("Graph saved as graph.png. You can open it manually.")
