@@ -6,6 +6,8 @@ from langgraph.graph.message import add_messages
 from langchain_ollama import OllamaLLM
 from langchain_huggingface import ChatHuggingFace
 from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_core.messages.human import HumanMessage
+from langchain_core.messages.system import SystemMessage
 
 tool = TavilySearchResults(max_results=2)
 tools = [tool]
@@ -47,7 +49,29 @@ def filter_think_info(text):
 def chatbot(state: State):
     show_thinking = False
     find_think_end = False
-    input_text = " ".join([msg.content for msg in state["messages"]])
+    search_result = ""
+    question = ""
+    input_text = ""
+    
+    for msg in state["messages"]:
+        print(type(msg))
+        print(msg)
+        if isinstance(msg, SystemMessage):
+            search_result = msg.content
+        elif isinstance(msg, HumanMessage):
+            question = msg.content
+            
+    input_text = f"""
+        You are a helpful assistant answering questions based on the uploaded document.
+        Context:
+        {search_result}
+
+        Question:
+        {question}
+
+        Answer concisely and accurately in three sentences or less.
+    """
+    
     print( "\n\n\n", "\n=============input_text=============\n" , input_text, "\n\n\n")
     print("Assistant: ", end = '')
     
@@ -97,7 +121,7 @@ def run_search(state: State):
 
     # 确保只添加一次搜索结果
     search_content = "\n".join([result["content"] for result in results])
-    state["messages"] = [msg for msg in state["messages"] if not (isinstance(msg, dict) and msg.get("role") == "system")]
+    state["messages"] = [msg for msg in state["messages"] if not isinstance(msg, SystemMessage)]
     state["messages"].append({"role": "system", "content": f"Search results: {search_content}"})
     return state
 
