@@ -10,6 +10,10 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from IPython.display import Image, display
 
+# vLLM based llm.
+# from langchain_openai import ChatOpenAI
+# llm = ChatOpenAI()
+# llm.bind_tools()
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
