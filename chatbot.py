@@ -8,6 +8,7 @@ from langchain_huggingface import ChatHuggingFace
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages.human import HumanMessage
 from langchain_core.messages.system import SystemMessage
+from IPython.display import Image, display
 
 tool = TavilySearchResults(max_results=2)
 tools = [tool]
@@ -164,7 +165,7 @@ while True:
 
 
 try:
-    img_data = graph.get_graph().draw_mermaid_png()
+    img_data = graph.get_graph().draw_png()
     with open('graph.png', 'wb') as f:
         f.write(img_data)
     print("Graph saved as graph.png. You can open it manually.")
