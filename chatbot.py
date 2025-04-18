@@ -4,6 +4,7 @@ from langchain_ollama import ChatOllama
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages import BaseMessage
 from typing_extensions import TypedDict
+from langgraph.checkpoint.memory import MemorySaver
 
 from langgraph.graph import StateGraph
 from langgraph.graph.message import add_messages
@@ -44,13 +45,14 @@ graph_builder.add_conditional_edges(
 # Any time a tool is called, we return to the chatbot to decide the next step
 graph_builder.add_edge("tools", "chatbot")
 graph_builder.set_entry_point("chatbot")
-graph = graph_builder.compile()
+memory = MemorySaver()
+graph = graph_builder.compile(checkpointer=memory)
 
 def stream_graph_updates(user_input: str):
-    for event in graph.stream({"messages": [{"role": "user", "content": user_input}]}):
+    for event in graph.stream({"messages": [{"role": "user", "content": user_input}]},
+                                            {"configurable": {"thread_id": "2"}}):
         for value in event.values():
             print("Assistant:", value["messages"][-1].content)
-
 
 while True:
     try:
